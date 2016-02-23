@@ -20,7 +20,7 @@ modify the following line within "generate headlines":
     bash generate_headlines
 
 ###Sources:
-The Facebook page scraper [get_fb_posts_fb_page.py] was written by github user minimaxr
+The Facebook page scraper [get_fb_posts_fb_page.py] was written by github user [minimaxr](https://github.com/minimaxir/facebook-page-post-scraper).
 The scraper has been modified to set the scraped facebook page as a command argument.
 
 My Markov-Chain project is used to generate the headlines.
