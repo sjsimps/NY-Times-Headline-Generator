@@ -1,0 +1,17 @@
+#!/bin/bash
+
+#This is the name of the public facebook page to be
+#scraped for content
+PAGE="nytimes"
+
+cd Markov/ ; make ; cd ../
+
+cd Page_Scraper/;
+if [ ! -f "nytimes_facebook_statuses.csv" ]; then
+    echo "Page statuses not found, please wait while statuses are populated"
+    timeout 60s python get_fb_posts_fb_page.py $PAGE
+fi
+cd ../
+
+echo "Generating Headlines:" ;
+./Markov/markov -f Page_Scraper/nytimes_facebook_statuses.csv -c -l -a -s 100
