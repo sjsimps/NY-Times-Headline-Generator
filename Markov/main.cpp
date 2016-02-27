@@ -5,7 +5,7 @@
 #include "csv_parser.h"
 #include "markov_chain.h"
 
-static std::string file = "test.txt";
+static std::string file = "";
 static Markov_Chain* chain;
 static int out_size = 25;
 
@@ -16,6 +16,7 @@ static void set_config(int argc, char* argv[])
     {
         {"file",       required_argument, 0, 'f'},
         {"size",       required_argument, 0, 's'},
+        {"regex",      required_argument, 0, 'r'},
         {"all",        no_argument, 0, 'a'},
         {"csv",        no_argument, 0, 'c'},
         {"line",       no_argument, 0, 'l'},
@@ -23,7 +24,7 @@ static void set_config(int argc, char* argv[])
         {0, 0, 0, 0}
     };
 
-    while ((option_index = getopt_long(argc, argv, "calhf:s:", options, NULL)) != -1)
+    while ((option_index = getopt_long(argc, argv, "calhf:s:r:", options, NULL)) != -1)
     {
         switch (option_index){
             case 'f':
@@ -32,6 +33,8 @@ static void set_config(int argc, char* argv[])
             case 's':
                 out_size = strtoul(optarg, NULL, 10);
                 break;
+            case 'r':
+                chain->Set_Regex(optarg);
             case 'a':
                 chain->m_cfg.accept_all = true;
                 break;
@@ -45,12 +48,13 @@ static void set_config(int argc, char* argv[])
                 std::cout << "\nUsage: markov [options]"
                           << "\nGenerates Markov chain from text input and generates new text sequence."
                           << "\n"
-                          << "\n\t[-f | --file] <filename>  Generate chain from file."
-                          << "\n\t[-s | --size] <size>      Set number of words generated."
-                          << "\n\t[-c | --csv ]             Parse input file as CSV file."
-                          << "\n\t[-a | --all ]             Utilize all input without filter."
-                          << "\n\t[-l | --line]             Use newlines as chain entries."
-                          << "\n\t[-h | --help]             Display help and exit."
+                          << "\n\t[-f | --file ] <filename>  Generate chain from file."
+                          << "\n\t[-r | --regex] <regex>     Set new regex string filter."
+                          << "\n\t[-s | --size ] <size>      Set number of words generated."
+                          << "\n\t[-c | --csv  ]             Parse input file as CSV file."
+                          << "\n\t[-a | --all  ]             Accept all input without regex filter."
+                          << "\n\t[-l | --line ]             Use newlines as chain entries."
+                          << "\n\t[-h | --help ]             Display help and exit."
                           << "\n\n";
                 exit(EXIT_SUCCESS);
                 break;
@@ -60,17 +64,36 @@ static void set_config(int argc, char* argv[])
                 break;
         }
     }
+    if (file == "")
+    {
+        std::cout<< "\nError: Input file must be selected.\n";
+        exit(EXIT_FAILURE);
+    }
+}
+
+template<typename T>
+static void Print_Vector(std::vector<T> arr)
+{
+    const int size = arr.size();
+    for (int i = 0; i < size; i++)
+    {
+        std::cout << arr[i] << " ";
+    }
+    std::cout << "\n";
 }
 
 int main (int argc, char* argv[])
 {
+    std::vector<std::string> sequence;
     chain = new Markov_Chain();
 
     set_config(argc, argv);
 
     chain->Parse_File(file);
     chain->Build_Chain();
-    chain->Output_Chain(out_size);
+    sequence = chain->Output_Chain(out_size);
+    Print_Vector<std::string>(sequence);
 
     delete chain;
+    return EXIT_SUCCESS;
 }
