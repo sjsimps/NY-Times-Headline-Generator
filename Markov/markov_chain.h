@@ -6,77 +6,195 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <regex>
 
-struct Markov_Edge;
-struct Markov_State;
+template <class T> struct Markov_Edge;
+template <class T> struct Markov_State;
 
+template <class T>
 class Markov_Chain
 {
 public:
     Markov_Chain();
     ~Markov_Chain();
 
-    //Add whole file to chain
-    void Parse_File(std::string filename);
+    //Adds event to chain with previous state information
+    void Add_Event(T last_event, T current_event);
 
-    //Add individual line to chain
-    void Add_line_to_chain(std::string line);
+    //Adds a single event without a previous state
+    void Add_Event(T current_event);
 
-    //Once all desired data has been added to the chain,
-    //run this method to construct the markov chain.
-    void Build_Chain();
-    
-    //Ouptut random sequence
-    std::vector<std::string> Output_Chain (int output_size);
-    
-    //Data Access:
-    // Every input data piece is stored in m_data
-    // Every Markov chain state is indexed by m_map
-    // Once the markov chain has been built using Build_Chain(), each input
-    // data piece is mapped to a markov state.
-    std::vector<std::string> m_data;
-    std::map<std::string,Markov_State> m_map;
+    //Output randomized state sequence
+    std::vector<T> Output_Random_Sequence (int output_length);
 
-    //Configurations:
-    struct Markov_Cfg
-    {
-        //Data filter settings:
-        bool accept_all;          //Set to true to accept all input, unfiltered
-        std::string accept_regex; //Set to filter input strings. Regex is set using Set_Regex()
+    //Output current chain status to console
+    void To_String();
 
-        //This character separates input elements
-        char delimiter;
+    // Every Markov state is indexed by m_map using a data string
+    std::map<T,Markov_State<T>> m_map;
 
-        //Set to true to separate data lines with newline characters
-        bool split_lines;
-
-        //CSV Options
-        bool use_csv;      //Set to True to parse input file as CSV
-        int csv_column;    //Set column number to only accept data from certain CSV column
-        int csv_n_columns; //Set to the number of columns within the CSV file
-    } m_cfg;
-    void Set_Regex(std::string regex_str);
-
-private:
-    bool Is_Valid_Word(std::string word);
-    void Initialize_Cfg();
-    std::regex m_match_word;
 };
 
-
+template <class T>
 struct Markov_State
 {
-    std::string data;       //Data that corresponds to this state
+    T data;       //Data that corresponds to this state
     unsigned int num_events;//Number of times this state has occured given the input data
-    Markov_Edge* edge_list; //List containing all edges to a next possible state
+    Markov_Edge<T>* edge_list; //List containing all edges to a next possible state
 };
 
+template <class T>
 struct Markov_Edge
 {
     unsigned int event_rate; //Number of time this edge has been taken from previous state given the input data
-    Markov_State* next_state;//Next state corresponding to this edge
-    Markov_Edge* next_edge;  //Next edge within the edge list
+    Markov_State<T>* next_state;//Next state corresponding to this edge
+    Markov_Edge<T>* next_edge;  //Next edge within the edge list
 };
+
+////////// - MARKOV CHAIN IMPLEMENTATION - //////////
+
+template <class T>
+Markov_Chain<T>::Markov_Chain()
+{
+}
+
+template <class T>
+Markov_Chain<T>::~Markov_Chain()
+{
+    Markov_Edge<T>* current;
+    Markov_Edge<T>* next;
+    for(auto iterator = m_map.begin(); iterator != m_map.end(); iterator++)
+    {
+        current = ((Markov_State<T>)iterator->second).edge_list;
+        next = NULL;
+
+        while (current != NULL)
+        {
+            next = current->next_edge;
+            delete current;
+            current = next;
+        }
+    }
+}
+
+//Insert new event with no edges
+template <class T>
+void Markov_Chain<T>::Add_Event(T current_event)
+{
+    if (m_map.count(current_event) == 0)
+    {
+        Markov_State<T> new_state;
+        new_state.num_events = 0;
+        new_state.data = current_event;
+        new_state.edge_list = NULL;
+
+        m_map.insert(std::pair<T,Markov_State<T>>(current_event,new_state));
+    }
+}
+
+//Insert new event with an edge from the previous state:
+// Last Event -> Current Event
+template <class T>
+void Markov_Chain<T>::Add_Event(T last_event, T current_event)
+{
+    //If the map contains this state already, increase event count
+    if (m_map.count(current_event))
+    {
+        m_map[current_event].num_events++;
+    }
+    else
+    //Else create new state for this event
+    {
+        Markov_State<T> new_state;
+        new_state.num_events = 1;
+        new_state.data = current_event;
+        new_state.edge_list = NULL;
+        m_map.insert(std::pair<T,Markov_State<T>>(current_event,new_state));
+    }
+
+    //Update the edge that points from the last to the current event
+    Markov_Edge<T>* index = m_map[last_event].edge_list;
+
+    if (index == NULL)
+    {
+        m_map[last_event].edge_list = new Markov_Edge<T>;
+        index = m_map[last_event].edge_list;
+        index->event_rate = 1;
+        index->next_state = &m_map[current_event];
+        index->next_edge = NULL;
+    }
+    else
+    {
+        while (index->next_edge != NULL && index->next_state->data != current_event)
+        {
+            index = index->next_edge;
+        }
+
+        if (index->next_state->data != current_event)
+        {
+            index->next_edge = new Markov_Edge<T>;
+            index = index->next_edge;
+            index->event_rate = 1;
+            index->next_state = &m_map[current_event];
+            index->next_edge = NULL;
+        }
+        else
+        {
+            index->event_rate++;
+        }
+    }
+
+}
+
+template <class T>
+void Markov_Chain<T>::To_String ()
+{
+    Markov_State<T>* state;
+    Markov_Edge<T>* edge;
+    for(auto iterator = m_map.begin(); iterator != m_map.end(); iterator++)
+    {
+        state = &iterator->second;
+        edge = state->edge_list;
+        std::cout<<"\nState: " <<  state->data
+            <<"\nNum Events: " << state->num_events
+            <<"\nNext States: [Frequency / Data]";
+
+        while (edge != NULL)
+        {
+            std::cout <<"\n\t[" << edge->next_state->data << " / " << edge->event_rate << "]";
+            edge = edge->next_edge;
+        }
+
+        std::cout << "\n";
+    }
+}
+
+template <class T>
+std::vector<T> Markov_Chain<T>::Output_Random_Sequence (int output_size)
+{
+    srand (time(NULL));
+    std::vector<T> retval;
+    int count = 0;
+    int val = rand() % m_map.size();
+    
+    auto item = m_map.begin();
+    std::advance( item, val );
+    Markov_State<T> state = item->second; 
+    Markov_Edge<T>* edge = state.edge_list;
+
+    while (count < output_size && edge != NULL)
+    {
+        retval.push_back(state.data);
+        val = rand() % state.num_events;
+        while(val >= 0 && edge->next_edge != NULL)
+        {
+            val -= edge->event_rate;
+            if (val >= 0) edge = edge->next_edge;
+        }
+        state = *edge->next_state;
+        edge = state.edge_list;
+        count++;
+    }
+    return retval;
+}
 
 #endif

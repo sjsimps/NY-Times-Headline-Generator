@@ -25,7 +25,7 @@ void CSV_Parser::Set_Data(std::string filename, int column, int n_columns)
     std::ifstream file;
     std::string line;
     std::string entry;
-    int entry_count = 0;
+    int entry_count = 1;
     int position = 0;
     int line_length;
 
@@ -42,11 +42,19 @@ void CSV_Parser::Set_Data(std::string filename, int column, int n_columns)
             {
                 end_of_line = ((i+1) >= line_length) ? 1 : 0;
 
-                if (line[i] == ',' || line[i] == 0xA || end_of_line)
+                if (line[i] == '\"')
+                {
+                    if ( !( ((i+1) < line_length) && (line[i+1] == '\"') ) )
+                    {
+                        in_paren = !in_paren;
+                    }
+                    else i++;
+                }
+                if (line[i] == ',' || line[i] == 0x0A || end_of_line)
                 {
                     if(!in_paren)
                     {
-                        if ((column == 0) || (entry_count % n_columns)+1 == column)
+                        if (column == 0 || entry_count == column)
                         {
                             entry.append( line.substr(position, i - position + end_of_line) );
                             Handle_Quotes(&entry);
@@ -54,20 +62,12 @@ void CSV_Parser::Set_Data(std::string filename, int column, int n_columns)
                         }
                         entry.clear();
                         position = i+1;
-                        entry_count++;
+                        if (n_columns > 0) entry_count = (entry_count % n_columns) + 1;
                     }
                     else if (end_of_line)
                     {
                         entry.append( line.substr(position, i - position + end_of_line) );
                     }
-                }
-                else if (line[i] == '\"')
-                {
-                    if ( !( ((i+1) < line_length) && (line[i+1] == '\"') ) )
-                    {
-                        in_paren = !in_paren;
-                    }
-                    else i++;
                 }
             }
             position = 0;
@@ -79,6 +79,12 @@ void CSV_Parser::Set_Data(std::string filename, int column, int n_columns)
         std::cout << "File \"" << filename << "\" could not be opened!";
         exit(EXIT_FAILURE);
     }
+    
+    if (entry.size() > 0)
+    {
+        Handle_Quotes(&entry);
+        m_data.push_back(entry);
+    }
     m_size = m_data.size();
 }
 
@@ -89,9 +95,8 @@ void CSV_Parser::Handle_Quotes(std::string* str)
         if ((*str)[i] == '\"')
         {
             str->erase(i,1);
-            i--;
+            if ( !(i < str->length() && (*str)[i] == '\"') ) i--;
         }
     }
-    //std::cout << "\n" << (*str);
 }
 
