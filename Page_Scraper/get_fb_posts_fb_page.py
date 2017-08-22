@@ -5,8 +5,8 @@ import csv
 import time
 import sys
 
-app_id = "1057700104302659"
-app_secret = "d1119b4d5ef8cc611241058ba05b7dd3" # DO NOT SHARE WITH ANYONE!
+app_id = "YOUR_APP_ID"
+app_secret = "YOUR_APP_SECRET" # DO NOT SHARE WITH ANYONE!
 page_id = str(sys.argv[1])
 
 access_token = app_id + "|" + app_secret
